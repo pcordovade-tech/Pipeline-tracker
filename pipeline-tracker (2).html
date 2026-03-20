@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline & Forecast Tracker — GeoVictoria MX</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0f0f; --bg2: #181818; --bg3: #222;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+    --text: #f0ede8; --text2: #888; --text3: #555;
+    --mono: 'DM Mono', monospace; --sans: 'DM Sans', sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; padding: 2rem; }
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 2.5rem; flex-wrap: wrap; gap: 0.5rem; }
+  .logo { font-family: var(--mono); font-size: 11px; color: var(--text3); letter-spacing: 0.12em; text-transform: uppercase; }
+  h1 { font-size: 22px; font-weight: 400; color: var(--text); letter-spacing: -0.02em; }
+  .month-tabs { display: flex; gap: 0; margin-bottom: 2rem; border-bottom: 0.5px solid var(--border); flex-wrap: wrap; }
+  .tab { padding: 8px 16px; border: none; background: transparent; color: var(--text3); font-family: var(--sans); font-size: 12px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -0.5px; transition: color 0.15s, border-color 0.15s; }
+  .tab:hover { color: var(--text2); }
+  .tab.active { color: var(--text); border-bottom-color: var(--text); font-weight: 500; }
+  .tab.has-data { color: var(--text2); }
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 2rem; }
+  .metric-card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  .metric-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .metric-val { font-family: var(--mono); font-size: 20px; font-weight: 500; color: var(--text); letter-spacing: -0.02em; }
+  .metric-sub { font-size: 12px; margin-top: 4px; font-weight: 500; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 2rem; }
+  .section-card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: 10px; padding: 20px; }
+  .section-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); margin-bottom: 1.25rem; }
+  .channel-row { margin-bottom: 16px; }
+  .channel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .channel-name { font-size: 13px; color: var(--text2); }
+  .pct-label { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+  .bar-wrap { height: 4px; background: var(--bg3); border-radius: 2px; position: relative; margin-bottom: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+  .channel-nums { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  .total-row { border-top: 0.5px solid var(--border); padding-top: 12px; margin-top: 4px; }
+  .no-data-msg { font-size: 12px; color: var(--text3); font-family: var(--mono); padding: 1rem 0; }
+  @media (max-width: 700px) {
+    body { padding: 1rem; }
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">GeoVictoria México</div>
+    <h1>Pipeline & Forecast</h1>
+  </div>
+  <div class="logo">2026</div>
+</header>
+
+<div class="month-tabs" id="tabs"></div>
+<div class="summary-grid" id="summary"></div>
+<div class="two-col" id="charts"></div>
+
+<script>
+const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const M_LABELS = {enero:'Ene',febrero:'Feb',marzo:'Mar',abril:'Abr',mayo:'May',junio:'Jun',julio:'Jul',agosto:'Ago',septiembre:'Sep',octubre:'Oct',noviembre:'Nov',diciembre:'Dic'};
+const CHANNELS = ['SDR','Prospeccion','Partners','Google'];
+const CH_LABELS = {SDR:'SDR', Prospeccion:'Prosp./Referidos', Partners:'Partners', Google:'Google / Ads'};
+
+// Datos reales por mes
+const REAL = {
+  enero:   { pipe:{SDR:36335, Prospeccion:21400, Partners:5000,  Google:19600}, forecast:{SDR:2900, Prospeccion:1900, Partners:0,    Google:2000} },
+  febrero: { pipe:{SDR:23400, Prospeccion:4800,  Partners:8000,  Google:46000}, forecast:{SDR:600,  Prospeccion:600,  Partners:300,  Google:2700} },
+  marzo:   { pipe:{SDR:24000, Prospeccion:64000, Partners:5400,  Google:7500},  forecast:{SDR:2072, Prospeccion:1400, Partners:2800, Google:5000} },
+};
+
+// Metas cargadas desde Excel — hoja Metas Pipe
+const METAS = {
+  enero:      { pipe:{SDR:22594, Prospeccion:15062, Partners:7531,  Google:30125, total:75312},  forecast:{SDR:2259, Prospeccion:3389, Partners:2259, Google:3389, total:11297} },
+  febrero:    { pipe:{SDR:22594, Prospeccion:15062, Partners:7531,  Google:30125, total:75312},  forecast:{SDR:2259, Prospeccion:3389, Partners:2259, Google:3389, total:11297} },
+  marzo:      { pipe:{SDR:22594, Prospeccion:15062, Partners:7531,  Google:30125, total:75312},  forecast:{SDR:2259, Prospeccion:3389, Partners:2259, Google:3389, total:11297} },
+  abril:      { pipe:{SDR:25983, Prospeccion:17322, Partners:8661,  Google:34643, total:86609},  forecast:{SDR:2600, Prospeccion:3900, Partners:2600, Google:3900, total:13000} },
+  mayo:       { pipe:{SDR:25983, Prospeccion:17322, Partners:8661,  Google:34643, total:86609},  forecast:{SDR:2600, Prospeccion:3900, Partners:2600, Google:3900, total:13000} },
+  junio:      { pipe:{SDR:25983, Prospeccion:17322, Partners:8661,  Google:34643, total:86609},  forecast:{SDR:2600, Prospeccion:3900, Partners:2600, Google:3900, total:13000} },
+  julio:      { pipe:{SDR:29880, Prospeccion:19920, Partners:9960,  Google:39840, total:99600},  forecast:{SDR:3000, Prospeccion:4500, Partners:3000, Google:4500, total:15000} },
+  agosto:     { pipe:{SDR:29880, Prospeccion:19920, Partners:9960,  Google:39840, total:99600},  forecast:{SDR:3000, Prospeccion:4500, Partners:3000, Google:4500, total:15000} },
+  septiembre: { pipe:{SDR:29880, Prospeccion:19920, Partners:9960,  Google:39840, total:99600},  forecast:{SDR:3000, Prospeccion:4500, Partners:3000, Google:4500, total:15000} },
+  octubre:    { pipe:{SDR:34362, Prospeccion:22908, Partners:11454, Google:45816, total:114540}, forecast:{SDR:3436, Prospeccion:5154, Partners:3436, Google:5154, total:17181} },
+  noviembre:  { pipe:{SDR:34362, Prospeccion:22908, Partners:11454, Google:45816, total:114540}, forecast:{SDR:3436, Prospeccion:5154, Partners:3436, Google:5154, total:17181} },
+  diciembre:  { pipe:{SDR:34362, Prospeccion:22908, Partners:11454, Google:45816, total:114540}, forecast:{SDR:3436, Prospeccion:5154, Partners:3436, Google:5154, total:17181} },
+};
+
+let current = 'marzo';
+
+function fmt(n) { return n != null ? '$' + Math.round(n).toLocaleString('es-MX') : '—'; }
+function fmtPct(p) { return p != null ? Math.round(p) + '%' : '—'; }
+function pctColor(p) {
+  if (p == null) return '#555';
+  if (p >= 100) return '#1fba82';
+  if (p >= 75)  return '#4a9eff';
+  if (p >= 50)  return '#f0a020';
+  return '#e05050';
+}
+function getPct(r, m) { if (!m || r == null) return null; return (r / m) * 100; }
+function totalReal(month, section) {
+  if (!REAL[month]) return null;
+  return CHANNELS.reduce((s, ch) => s + (REAL[month][section][ch] || 0), 0);
+}
+
+function renderSummary() {
+  const hasReal = !!REAL[current];
+  let html = '';
+  [{sec:'pipe',label:'Pipeline total'},{sec:'forecast',label:'Forecast total'}].forEach(({sec,label}) => {
+    const r = hasReal ? totalReal(current, sec) : null;
+    const m = METAS[current][sec].total;
+    const p = getPct(r, m);
+    const color = pctColor(p);
+    const diff = r != null && m ? r - m : null;
+    html += `<div class="metric-card">
+      <div class="metric-label">${label}</div>
+      <div class="metric-val">${r != null ? fmt(r) : '—'}</div>
+      <div class="metric-sub" style="color:${color}">${p != null ? fmtPct(p) + ' de meta' : 'datos próximamente'}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Meta ${sec}</div>
+      <div class="metric-val">${fmt(m)}</div>
+      <div class="metric-sub" style="color:${diff != null ? (diff >= 0 ? '#1fba82' : '#e05050') : '#555'}">${diff != null ? (diff >= 0 ? '+' : '') + fmt(diff) : '—'}</div>
+    </div>`;
+  });
+  document.getElementById('summary').innerHTML = html;
+}
+
+function renderSection(section) {
+  const hasReal = !!REAL[current];
+  let html = CHANNELS.map(ch => {
+    const r = hasReal ? (REAL[current][section][ch] || 0) : null;
+    const m = METAS[current][section][ch];
+    const p = getPct(r, m);
+    const color = pctColor(p);
+    const barW = p != null ? Math.min(100, p) : 0;
+    return `<div class="channel-row">
+      <div class="channel-header">
+        <span class="channel-name">${CH_LABELS[ch]}</span>
+        <span class="pct-label" style="color:${color}">${p != null ? fmtPct(p) : '—'}</span>
+      </div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${barW}%;background:${color};"></div></div>
+      <div class="channel-nums">${r != null ? fmt(r) : 'sin data'} · meta ${fmt(m)}</div>
+    </div>`;
+  }).join('');
+
+  const rt = hasReal ? totalReal(current, section) : null;
+  const mt = METAS[current][section].total;
+  const pt = getPct(rt, mt);
+  const ct = pctColor(pt);
+  html += `<div class="channel-row total-row">
+    <div class="channel-header">
+      <span class="channel-name" style="color:var(--text);font-weight:500;">Total</span>
+      <span class="pct-label" style="color:${ct};font-size:13px;">${pt != null ? fmtPct(pt) : '—'}</span>
+    </div>
+    <div class="bar-wrap" style="height:6px;"><div class="bar-fill" style="width:${pt!=null?Math.min(100,pt):0}%;background:${ct};"></div></div>
+    <div class="channel-nums">${rt != null ? fmt(rt) : 'sin data'} · meta ${fmt(mt)}</div>
+  </div>`;
+  return html;
+}
+
+function renderCharts() {
+  document.getElementById('charts').innerHTML = `
+    <div class="section-card">
+      <div class="section-label">Pipeline por canal</div>
+      ${renderSection('pipe')}
+    </div>
+    <div class="section-card">
+      <div class="section-label">Forecast por canal</div>
+      ${renderSection('forecast')}
+    </div>`;
+}
+
+function setMonth(m) { current = m; renderTabs(); renderSummary(); renderCharts(); }
+
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = MONTHS.map(m => {
+    const hasData = !!REAL[m];
+    return `<button class="tab ${m===current?'active':''} ${hasData?'has-data':''}" onclick="setMonth('${m}')">${M_LABELS[m]}</button>`;
+  }).join('');
+}
+
+renderTabs(); renderSummary(); renderCharts();
+</script>
+</body>
+</html>
