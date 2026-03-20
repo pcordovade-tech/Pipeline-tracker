@@ -39,6 +39,22 @@
   .channel-nums { font-size: 11px; color: var(--text3); font-family: var(--mono); }
   .total-row { border-top: 0.5px solid var(--border); padding-top: 12px; margin-top: 4px; }
   .no-data-msg { font-size: 12px; color: var(--text3); font-family: var(--mono); padding: 1rem 0; }
+  .tab.anual { color: var(--text3); border-left: 0.5px solid var(--border); margin-left: 8px; padding-left: 20px; }
+  .heatmap-wrap { overflow-x: auto; }
+  .heatmap { border-collapse: collapse; font-size: 11px; min-width: 600px; width: 100%; }
+  .heatmap th { font-weight: 400; color: var(--text3); padding: 4px 6px; text-align: center; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .heatmap th.row-h { text-align: left; }
+  .heatmap td { padding: 5px 4px; text-align: center; font-size: 11px; font-weight: 500; font-family: var(--mono); }
+  .heatmap td.row-label { text-align: left; color: var(--text2); font-size: 12px; font-family: var(--sans); padding-right: 12px; white-space: nowrap; font-weight: 400; }
+  .heatmap tr { border-bottom: 0.5px solid var(--border); }
+  .cell-green { background: rgba(31,186,130,0.15); color: #1fba82; border-radius: 4px; }
+  .cell-blue  { background: rgba(74,158,255,0.12); color: #4a9eff; border-radius: 4px; }
+  .cell-amber { background: rgba(240,160,32,0.15); color: #f0a020; border-radius: 4px; }
+  .cell-red   { background: rgba(224,80,80,0.15);  color: #e05050; border-radius: 4px; }
+  .cell-empty { color: var(--text3); }
+  .hm-section-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); margin: 1.5rem 0 0.75rem; }
+  .hm-legend { display: flex; gap: 16px; margin-top: 1rem; flex-wrap: wrap; }
+  .hm-leg { display: flex; align-items: center; gap: 5px; font-size: 11px; }
   @media (max-width: 700px) {
     body { padding: 1rem; }
     .summary-grid { grid-template-columns: 1fr 1fr; }
@@ -47,7 +63,7 @@
 </style>
 </head>
 <body>
-
+ 
 <header>
   <div>
     <div class="logo">GeoVictoria México</div>
@@ -55,24 +71,27 @@
   </div>
   <div class="logo">2026</div>
 </header>
-
+ 
 <div class="month-tabs" id="tabs"></div>
-<div class="summary-grid" id="summary"></div>
-<div class="two-col" id="charts"></div>
-
+<div id="monthly-view">
+  <div class="summary-grid" id="summary"></div>
+  <div class="two-col" id="charts"></div>
+</div>
+<div id="annual-view" style="display:none;"></div>
+ 
 <script>
 const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const M_LABELS = {enero:'Ene',febrero:'Feb',marzo:'Mar',abril:'Abr',mayo:'May',junio:'Jun',julio:'Jul',agosto:'Ago',septiembre:'Sep',octubre:'Oct',noviembre:'Nov',diciembre:'Dic'};
 const CHANNELS = ['SDR','Prospeccion','Partners','Google'];
 const CH_LABELS = {SDR:'SDR', Prospeccion:'Prosp./Referidos', Partners:'Partners', Google:'Google / Ads'};
-
+ 
 // Datos reales por mes
 const REAL = {
   enero:   { pipe:{SDR:36335, Prospeccion:21400, Partners:5000,  Google:19600}, forecast:{SDR:2900, Prospeccion:1900, Partners:0,    Google:2000} },
   febrero: { pipe:{SDR:23400, Prospeccion:4800,  Partners:8000,  Google:46000}, forecast:{SDR:600,  Prospeccion:600,  Partners:300,  Google:2700} },
   marzo:   { pipe:{SDR:24000, Prospeccion:64000, Partners:5400,  Google:7500},  forecast:{SDR:2072, Prospeccion:1400, Partners:2800, Google:5000} },
 };
-
+ 
 // Metas cargadas desde Excel — hoja Metas Pipe
 const METAS = {
   enero:      { pipe:{SDR:22594, Prospeccion:15062, Partners:7531,  Google:30125, total:75312},  forecast:{SDR:2259, Prospeccion:3389, Partners:2259, Google:3389, total:11297} },
@@ -88,9 +107,9 @@ const METAS = {
   noviembre:  { pipe:{SDR:34362, Prospeccion:22908, Partners:11454, Google:45816, total:114540}, forecast:{SDR:3436, Prospeccion:5154, Partners:3436, Google:5154, total:17181} },
   diciembre:  { pipe:{SDR:34362, Prospeccion:22908, Partners:11454, Google:45816, total:114540}, forecast:{SDR:3436, Prospeccion:5154, Partners:3436, Google:5154, total:17181} },
 };
-
+ 
 let current = 'marzo';
-
+ 
 function fmt(n) { return n != null ? '$' + Math.round(n).toLocaleString('es-MX') : '—'; }
 function fmtPct(p) { return p != null ? Math.round(p) + '%' : '—'; }
 function pctColor(p) {
@@ -105,7 +124,7 @@ function totalReal(month, section) {
   if (!REAL[month]) return null;
   return CHANNELS.reduce((s, ch) => s + (REAL[month][section][ch] || 0), 0);
 }
-
+ 
 function renderSummary() {
   const hasReal = !!REAL[current];
   let html = '';
@@ -128,7 +147,7 @@ function renderSummary() {
   });
   document.getElementById('summary').innerHTML = html;
 }
-
+ 
 function renderSection(section) {
   const hasReal = !!REAL[current];
   let html = CHANNELS.map(ch => {
@@ -146,7 +165,7 @@ function renderSection(section) {
       <div class="channel-nums">${r != null ? fmt(r) : 'sin data'} · meta ${fmt(m)}</div>
     </div>`;
   }).join('');
-
+ 
   const rt = hasReal ? totalReal(current, section) : null;
   const mt = METAS[current][section].total;
   const pt = getPct(rt, mt);
@@ -161,7 +180,7 @@ function renderSection(section) {
   </div>`;
   return html;
 }
-
+ 
 function renderCharts() {
   document.getElementById('charts').innerHTML = `
     <div class="section-card">
@@ -173,16 +192,85 @@ function renderCharts() {
       ${renderSection('forecast')}
     </div>`;
 }
-
-function setMonth(m) { current = m; renderTabs(); renderSummary(); renderCharts(); }
-
-function renderTabs() {
-  document.getElementById('tabs').innerHTML = MONTHS.map(m => {
-    const hasData = !!REAL[m];
-    return `<button class="tab ${m===current?'active':''} ${hasData?'has-data':''}" onclick="setMonth('${m}')">${M_LABELS[m]}</button>`;
-  }).join('');
+ 
+let viewMode = 'month';
+ 
+function cellClass(p) {
+  if (p == null) return 'cell-empty';
+  if (p >= 100) return 'cell-green';
+  if (p >= 75)  return 'cell-blue';
+  if (p >= 50)  return 'cell-amber';
+  return 'cell-red';
 }
-
+ 
+function renderAnnual() {
+  const M_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const sections = [{key:'pipe',label:'Pipeline por canal'},{key:'forecast',label:'Forecast por canal'}];
+  let html = '';
+  sections.forEach(({key, label}) => {
+    html += `<div class="hm-section-label">${label}</div>
+    <div class="heatmap-wrap"><table class="heatmap">
+      <thead><tr><th class="row-h"></th>${M_SHORT.map(m=>`<th>${m}</th>`).join('')}</tr></thead>
+      <tbody>`;
+    CHANNELS.forEach(ch => {
+      html += `<tr><td class="row-label">${CH_LABELS[ch]}</td>`;
+      MONTHS.forEach(m => {
+        const r = REAL[m] ? (REAL[m][key][ch] || 0) : null;
+        const meta = METAS[m][key][ch];
+        const p = getPct(r, meta);
+        const cls = r == null ? 'cell-empty' : cellClass(p);
+        const txt = r == null ? '—' : (p != null ? Math.round(p)+'%' : '—');
+        html += `<td class="${cls}">${txt}</td>`;
+      });
+      html += `</tr>`;
+    });
+    html += `<tr style="border-top:0.5px solid rgba(255,255,255,0.14)">
+      <td class="row-label" style="color:var(--text);font-weight:500;">Total</td>`;
+    MONTHS.forEach(m => {
+      const rt = REAL[m] ? totalReal(m, key) : null;
+      const mt = METAS[m][key].total;
+      const p = getPct(rt, mt);
+      const cls = rt == null ? 'cell-empty' : cellClass(p);
+      const txt = rt == null ? '—' : (p != null ? Math.round(p)+'%' : '—');
+      html += `<td class="${cls}" style="font-size:12px;">${txt}</td>`;
+    });
+    html += `</tr></tbody></table></div>`;
+  });
+  html += `<div class="hm-legend">
+    <span class="hm-leg"><span style="width:10px;height:10px;border-radius:2px;background:#1fba82;display:inline-block;"></span><span style="color:var(--text2);">+100% meta</span></span>
+    <span class="hm-leg"><span style="width:10px;height:10px;border-radius:2px;background:#4a9eff;display:inline-block;"></span><span style="color:var(--text2);">75–100%</span></span>
+    <span class="hm-leg"><span style="width:10px;height:10px;border-radius:2px;background:#f0a020;display:inline-block;"></span><span style="color:var(--text2);">50–75%</span></span>
+    <span class="hm-leg"><span style="width:10px;height:10px;border-radius:2px;background:#e05050;display:inline-block;"></span><span style="color:var(--text2);">-50%</span></span>
+    <span class="hm-leg"><span style="color:var(--text3);">— sin data</span></span>
+  </div>`;
+  document.getElementById('annual-view').innerHTML = html;
+}
+ 
+function setMonth(m) {
+  viewMode = 'month'; current = m;
+  document.getElementById('monthly-view').style.display = '';
+  document.getElementById('annual-view').style.display = 'none';
+  renderTabs(); renderSummary(); renderCharts();
+}
+ 
+function setAnnual() {
+  viewMode = 'annual';
+  document.getElementById('monthly-view').style.display = 'none';
+  document.getElementById('annual-view').style.display = '';
+  renderTabs(); renderAnnual();
+}
+ 
+function renderTabs() {
+  const monthBtns = MONTHS.map(m => {
+    const hasData = !!REAL[m];
+    const active = viewMode === 'month' && m === current;
+    return `<button class="tab ${active?'active':''} ${hasData?'has-data':''}" onclick="setMonth('${m}')">${M_LABELS[m]}</button>`;
+  }).join('');
+  const anualActive = viewMode === 'annual' ? 'active' : '';
+  document.getElementById('tabs').innerHTML = monthBtns +
+    `<button class="tab anual ${anualActive}" onclick="setAnnual()">Año completo</button>`;
+}
+ 
 renderTabs(); renderSummary(); renderCharts();
 </script>
 </body>
