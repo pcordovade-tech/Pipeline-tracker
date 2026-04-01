@@ -63,7 +63,7 @@
 </style>
 </head>
 <body>
- 
+
 <header>
   <div>
     <div class="logo">GeoVictoria México</div>
@@ -71,27 +71,27 @@
   </div>
   <div class="logo">2026</div>
 </header>
- 
+
 <div style="display:flex;align-items:center;border-bottom:0.5px solid rgba(255,255,255,0.08);margin-bottom:2rem;"><div class="month-tabs" id="tabs" style="border-bottom:none;margin-bottom:0;flex:1;overflow-x:auto;"></div><button class="tab anual" id="anual-btn" onclick="setAnnual()" style="white-space:nowrap;flex-shrink:0;">Año completo</button></div>
 <div id="monthly-view">
   <div class="summary-grid" id="summary"></div>
   <div class="two-col" id="charts"></div>
 </div>
 <div id="annual-view" style="display:none;"></div>
- 
+
 <script>
 const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const M_LABELS = {enero:'Ene',febrero:'Feb',marzo:'Mar',abril:'Abr',mayo:'May',junio:'Jun',julio:'Jul',agosto:'Ago',septiembre:'Sep',octubre:'Oct',noviembre:'Nov',diciembre:'Dic'};
 const CHANNELS = ['SDR','Prospeccion','Partners','Google'];
 const CH_LABELS = {SDR:'SDR', Prospeccion:'Prosp./Referidos', Partners:'Partners', Google:'Google / Ads'};
- 
+
 // Datos reales por mes
 const REAL = {
   enero:   { pipe:{SDR:36335, Prospeccion:21400, Partners:5000,  Google:19600}, forecast:{SDR:2900, Prospeccion:1900, Partners:0,    Google:2000} },
   febrero: { pipe:{SDR:23400, Prospeccion:4800,  Partners:8000,  Google:46000}, forecast:{SDR:600,  Prospeccion:600,  Partners:300,  Google:2700} },
-  marzo:   { pipe:{SDR:24000, Prospeccion:64000, Partners:5400,  Google:7500},  forecast:{SDR:2072, Prospeccion:1400, Partners:2800, Google:5000} },
+  marzo:   { pipe:{SDR:33000, Prospeccion:66700, Partners:7850,  Google:20000}, forecast:{SDR:2038, Prospeccion:1600, Partners:2858, Google:6250} },
 };
- 
+
 // Metas cargadas desde Excel — hoja Metas Pipe
 const METAS = {
   enero:      { pipe:{SDR:22594, Prospeccion:15062, Partners:7531,  Google:30125, total:75312},  forecast:{SDR:1130, Prospeccion:3389, Partners:2259, Google:4519, total:11297} },
@@ -107,9 +107,9 @@ const METAS = {
   noviembre:  { pipe:{SDR:34362, Prospeccion:22908, Partners:11454, Google:45816, total:114540}, forecast:{SDR:1718, Prospeccion:5154, Partners:3436, Google:6872, total:17181} },
   diciembre:  { pipe:{SDR:34362, Prospeccion:22908, Partners:11454, Google:45816, total:114540}, forecast:{SDR:1718, Prospeccion:5154, Partners:3436, Google:6872, total:17181} },
 };
- 
+
 let current = 'marzo';
- 
+
 function fmt(n) { return n != null ? '$' + Math.round(n).toLocaleString('es-MX') : '—'; }
 function fmtPct(p) { return p != null ? Math.round(p) + '%' : '—'; }
 function pctColor(p) {
@@ -124,7 +124,7 @@ function totalReal(month, section) {
   if (!REAL[month]) return null;
   return CHANNELS.reduce((s, ch) => s + (REAL[month][section][ch] || 0), 0);
 }
- 
+
 function renderSummary() {
   const hasReal = !!REAL[current];
   let html = '';
@@ -147,7 +147,7 @@ function renderSummary() {
   });
   document.getElementById('summary').innerHTML = html;
 }
- 
+
 function renderSection(section) {
   const hasReal = !!REAL[current];
   let html = CHANNELS.map(ch => {
@@ -165,7 +165,7 @@ function renderSection(section) {
       <div class="channel-nums">${r != null ? fmt(r) : 'sin data'} · meta ${fmt(m)}</div>
     </div>`;
   }).join('');
- 
+
   const rt = hasReal ? totalReal(current, section) : null;
   const mt = METAS[current][section].total;
   const pt = getPct(rt, mt);
@@ -180,7 +180,7 @@ function renderSection(section) {
   </div>`;
   return html;
 }
- 
+
 function renderCharts() {
   document.getElementById('charts').innerHTML = `
     <div class="section-card">
@@ -192,9 +192,9 @@ function renderCharts() {
       ${renderSection('forecast')}
     </div>`;
 }
- 
+
 let viewMode = 'month';
- 
+
 function cellClass(p) {
   if (p == null) return 'cell-empty';
   if (p >= 100) return 'cell-green';
@@ -202,7 +202,7 @@ function cellClass(p) {
   if (p >= 50)  return 'cell-amber';
   return 'cell-red';
 }
- 
+
 function renderAnnual() {
   const M_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const sections = [{key:'pipe',label:'Pipeline por canal'},{key:'forecast',label:'Forecast por canal'}];
@@ -245,21 +245,21 @@ function renderAnnual() {
   </div>`;
   document.getElementById('annual-view').innerHTML = html;
 }
- 
+
 function setMonth(m) {
   viewMode = 'month'; current = m;
   document.getElementById('monthly-view').style.display = '';
   document.getElementById('annual-view').style.display = 'none';
   renderTabs(); renderSummary(); renderCharts();
 }
- 
+
 function setAnnual() {
   viewMode = 'annual';
   document.getElementById('monthly-view').style.display = 'none';
   document.getElementById('annual-view').style.display = '';
   renderTabs(); renderAnnual();
 }
- 
+
 function renderTabs() {
   const monthBtns = MONTHS.map(m => {
     const hasData = !!REAL[m];
@@ -270,7 +270,7 @@ function renderTabs() {
   const btn = document.getElementById('anual-btn');
   if (btn) btn.className = 'tab anual' + (viewMode === 'annual' ? ' active' : '');
 }
- 
+
 renderTabs(); renderSummary(); renderCharts();
 </script>
 </body>
