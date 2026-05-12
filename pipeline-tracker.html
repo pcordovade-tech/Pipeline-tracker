@@ -522,6 +522,10 @@ const REAL_FORE = {
   KAM:         [1200, 1400, 3900, 1800, 1400, 0, 0, 0, 0, 0, 0, 0],
 };
 
+// Metas totales oficiales (fila 4 y 13 del Excel — estas son las metas reales)
+const META_PIPE_TOTAL = [75312, 75312, 75312, 86609, 86609, 86609, 99600, 99600, 99600, 114540, 114540, 114540];
+const META_FORE_TOTAL = [11297, 11297, 11297, 13000, 13000, 13000, 15000, 15000, 15000, 17181, 17181, 17181];
+
 // ─── ESTADO ───────────────────────────────────────────────────────────────────
 
 let activeMonth = 0; // index 0-11
@@ -561,9 +565,9 @@ function renderTabs() {
 // ─── RENDER MONTHLY ───────────────────────────────────────────────────────────
 
 function renderSummary(mi) {
-  const totalPipeMeta = CANALES.reduce((s,c) => s + META_PIPE[c.key][mi], 0);
+  const totalPipeMeta = META_PIPE_TOTAL[mi];
+  const totalForeMeta = META_FORE_TOTAL[mi];
   const totalPipeReal = CANALES.reduce((s,c) => s + REAL_PIPE[c.key][mi], 0);
-  const totalForeMeta = CANALES.reduce((s,c) => s + META_FORE[c.key][mi], 0);
   const totalForeReal = CANALES.reduce((s,c) => s + REAL_FORE[c.key][mi], 0);
 
   const pPipe = pct(totalPipeReal, totalPipeMeta);
@@ -621,9 +625,9 @@ function renderChannelRows(containerId, realData, metaData, mi) {
     `;
   });
 
-  // Total row
+  // Total row — usa meta oficial, no suma de metas por canal
   const totalReal = CANALES.reduce((s,c) => s + realData[c.key][mi], 0);
-  const totalMeta = CANALES.reduce((s,c) => s + metaData[c.key][mi], 0);
+  const totalMeta = realData === REAL_PIPE ? META_PIPE_TOTAL[mi] : META_FORE_TOTAL[mi];
   const tp = pct(totalReal, totalMeta);
   const tw = Math.min(tp, 100);
 
@@ -664,11 +668,12 @@ function renderHeatmap(tableId, realData, metaData) {
     html += '</tr>';
   });
 
-  // Total row
+  // Total row — usa meta oficial
   html += '<tr style="border-top:0.5px solid var(--border2)"><td style="color:var(--text2);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.08em">Total</td>';
+  const metaTotalArr2 = realData === REAL_PIPE ? META_PIPE_TOTAL : META_FORE_TOTAL;
   MESES.forEach((_, mi) => {
     const real = CANALES.reduce((s,c) => s + realData[c.key][mi], 0);
-    const meta = CANALES.reduce((s,c) => s + metaData[c.key][mi], 0);
+    const meta = metaTotalArr2[mi];
     if (real === 0) {
       html += `<td><span class="hm-na">—</span></td>`;
     } else {
@@ -724,9 +729,10 @@ function renderQGrid(containerId, realData, metaData) {
         </div>`;
     });
 
-    // Total Q
+    // Total Q — usa meta oficial
     const totalReal = q.months.reduce((s, mi) => s + CANALES.reduce((ss,c) => ss + realData[c.key][mi], 0), 0);
-    const totalMeta = q.months.reduce((s, mi) => s + CANALES.reduce((ss,c) => ss + metaData[c.key][mi], 0), 0);
+    const metaTotalArr = realData === REAL_PIPE ? META_PIPE_TOTAL : META_FORE_TOTAL;
+    const totalMeta = q.months.reduce((s, mi) => s + metaTotalArr[mi], 0);
     const tp = pct(totalReal, totalMeta);
 
     html += `
